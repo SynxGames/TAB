@@ -1,9 +1,12 @@
 package me.neznamy.tab.shared.features.globalplayerlist;
 
 import lombok.Getter;
+import me.neznamy.chat.TextColor;
 import me.neznamy.chat.component.TabComponent;
+import me.neznamy.chat.component.TextComponent;
 import me.neznamy.tab.shared.TAB;
 import me.neznamy.tab.shared.TabConstants;
+import me.neznamy.tab.shared.cpu.CpuManager;
 import me.neznamy.tab.shared.cpu.ThreadExecutor;
 import me.neznamy.tab.shared.cpu.TimedCaughtTask;
 import me.neznamy.tab.shared.data.Server;
@@ -19,6 +22,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 
 /**
  * Feature handler for global PlayerList feature.
@@ -26,22 +32,28 @@ import java.util.*;
 public class GlobalPlayerList extends RefreshableFeature implements JoinListener, QuitListener, VanishListener, GameModeListener,
         Loadable, UnLoadable, ServerSwitchListener, TabListClearListener, CustomThreaded, ProxyFeature {
 
-    @Getter private final ThreadExecutor customThread = new ThreadExecutor("TAB Global PlayerList Thread");
-    @Getter private OnlinePlayers onlinePlayers;
-    @Nullable private final ProxySupport proxy = TAB.getInstance().getFeatureManager().getFeature(TabConstants.Feature.PROXY_SUPPORT);
-    @NotNull private final GlobalPlayerListConfiguration configuration;
-    @NotNull  private final Map<Server, String> serverToGroupName = new HashMap<>();
-    @NotNull private final Map<String, Object> groupNameToGroup = new HashMap<>();
-    @Nullable private final PlayerList playerlist = TAB.getInstance().getFeatureManager().getFeature(TabConstants.Feature.PLAYER_LIST);
+    @Getter
+    private final ThreadExecutor customThread = new ThreadExecutor("TAB Global PlayerList Thread");
+    @Getter
+    private OnlinePlayers onlinePlayers;
+    @Nullable
+    private final ProxySupport proxy = TAB.getInstance().getFeatureManager().getFeature(TabConstants.Feature.PROXY_SUPPORT);
+    @NotNull
+    private final GlobalPlayerListConfiguration configuration;
+    @NotNull
+    private final Map<Server, String> serverToGroupName = new HashMap<>();
+    @NotNull
+    private final Map<String, Object> groupNameToGroup = new HashMap<>();
+    @Nullable
+    private final PlayerList playerlist = TAB.getInstance().getFeatureManager().getFeature(TabConstants.Feature.PLAYER_LIST);
 
-    /**
-     * Constructs new instance and registers new placeholders.
-     *
-     * @param   configuration
-     *          Feature configuration
-     */
-    public GlobalPlayerList(@NotNull GlobalPlayerListConfiguration configuration) {
-        this.configuration = configuration;
+    // --------------------------
+    // Synx Connect modifications
+    private void registerDynamicPlaceholders() {
+        // Piggy-backs to also update the shared server list every second
+        serverToGroupName.clear();
+        configuration.updateSharedServers();
+
         for (Map.Entry<String, List<Server>> entry : configuration.getSharedServers().entrySet()) {
             TAB.getInstance().getPlaceholderManager().registerInternalServerPlaceholder(TabConstants.Placeholder.globalPlayerListGroup(entry.getKey()), 1000, () -> {
                 if (onlinePlayers == null) return "0"; // Not loaded yet
@@ -58,10 +70,31 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
             });
         }
     }
+    // --------------------------
+
+    /**
+     * Constructs new instance and registers new placeholders.
+     *
+     * @param configuration Feature configuration
+     */
+    public GlobalPlayerList(@NotNull GlobalPlayerListConfiguration configuration) {
+        this.configuration = configuration;
+
+        registerDynamicPlaceholders();
+        TAB.getInstance().getCpu().getProcessingThread().repeatTask(
+                new TimedCaughtTask(
+                        TAB.getInstance().getCpu(),
+                        this::registerDynamicPlaceholders,
+                        "Dynamic Placeholder Registration",
+                        "GlobalPlayerList"
+                ),
+                10_000 // 10s
+        );
+    }
 
     @Override
     public void load() {
-        onlinePlayers =  new OnlinePlayers(TAB.getInstance().getOnlinePlayers());
+        onlinePlayers = new OnlinePlayers(TAB.getInstance().getOnlinePlayers());
         if (configuration.isUpdateLatency()) addUsedPlaceholder(TabConstants.Placeholder.PING);
         for (TabPlayer all : onlinePlayers.getPlayers()) {
             all.globalPlayerListData.serverGroup = getServerGroup(all.server);
@@ -80,11 +113,9 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
     /**
      * Returns {@code true} if viewer should see the target player, {@code false} if not.
      *
-     * @param   viewer
-     *          Player viewing the tablist
-     * @param   displayed
-     *          Player who is being displayed
-     * @return  {@code true} if viewer should see the target, {@code false} if not
+     * @param viewer    Player viewing the tablist
+     * @param displayed Player who is being displayed
+     * @return {@code true} if viewer should see the target, {@code false} if not
      */
     public boolean shouldSee(@NotNull TabPlayer viewer, @NotNull TabPlayer displayed) {
         if (displayed == viewer) return true;
@@ -97,9 +128,8 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
      * Returns server group of specified server. If not part of any group,
      * returns either default or unique name if isolate unlisted servers is enabled.
      *
-     * @param   playerServer
-     *          Server to get group of
-     * @return  Name of server group for this server
+     * @param playerServer Server to get group of
+     * @return Name of server group for this server
      */
     @NotNull
     public synchronized String getServerGroupName(@NotNull Server playerServer) {
@@ -110,9 +140,8 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
      * Returns server group of specified server. The returned object identity is equal for
      * all servers in the same group.
      *
-     * @param   playerServer
-     *          Server to get group of
-     * @return  Server group of specified server
+     * @param playerServer Server to get group of
+     * @return Server group of specified server
      */
     @NotNull
     private synchronized Object getServerGroup(@NotNull Server playerServer) {
@@ -121,20 +150,25 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
 
     @NotNull
     private String computeServerGroup(@NotNull Server server) {
+        String serverName = server.getName().toLowerCase();
+
         for (Map.Entry<String, List<Server>> group : configuration.getSharedServers().entrySet()) {
             for (Server serverDefinition : group.getValue()) {
-                if (serverDefinition.getName().endsWith("*")) {
-                    if (server.getName().startsWith(serverDefinition.getName().substring(0, serverDefinition.getName().length()-1).toLowerCase()))
+                String defName = serverDefinition.getName().toLowerCase();
+
+                if (defName.endsWith("*")) {
+                    if (serverName.startsWith(defName.substring(0, defName.length() - 1)))
                         return group.getKey();
-                } else if (serverDefinition.getName().startsWith("*")) {
-                    if (server.getName().endsWith(serverDefinition.getName().substring(1).toLowerCase()))
+                } else if (defName.startsWith("*")) {
+                    if (serverName.endsWith(defName.substring(1)))
                         return group.getKey();
-                }  else {
-                    if (server == serverDefinition)
+                } else {
+                    if (serverName.equals(defName))
                         return group.getKey();
                 }
             }
         }
+        // Fallback just in case
         return configuration.isIsolateUnlistedServers() ? "isolated:" + server.getName() : "DEFAULT";
     }
 
@@ -219,11 +253,9 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
     /**
      * Creates new entry of given target player for viewer.
      *
-     * @param   p
-     *          Displayed player
-     * @param   viewer
-     *          Player viewing the tablist
-     * @return  Entry of target for viewer
+     * @param p      Displayed player
+     * @param viewer Player viewing the tablist
+     * @return Entry of target for viewer
      */
     @NotNull
     public TabList.Entry getAddInfoData(@NotNull TabPlayer p, @NotNull TabPlayer viewer) {
@@ -292,7 +324,6 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
         if (target.isVanished() && !viewer.hasPermission(TabConstants.Permission.SEE_VANISHED)) return false;
         // Do not show duplicate player that will be removed in a sec
         if (TAB.getInstance().isPlayerConnected(target.getTablistId())) return false;
-        if (viewer.globalPlayerListData.onSpyServer) return true;
         return viewer.globalPlayerListData.serverGroup == target.serverGroup;
     }
 
@@ -362,10 +393,14 @@ public class GlobalPlayerList extends RefreshableFeature implements JoinListener
      */
     public static class PlayerData {
 
-        /** Server group of server the player is connected to */
+        /**
+         * Server group of server the player is connected to
+         */
         private Object serverGroup;
 
-        /** Flag tracking whether the player is on spy server or not */
+        /**
+         * Flag tracking whether the player is on spy server or not
+         */
         private boolean onSpyServer;
     }
 }
