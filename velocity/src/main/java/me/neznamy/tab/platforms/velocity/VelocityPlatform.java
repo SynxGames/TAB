@@ -7,6 +7,8 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.scoreboard.ScoreboardManager;
+import games.synx.connect.api.Connect;
+import jdk.jshell.spi.ExecutionControl;
 import lombok.Getter;
 import me.neznamy.tab.platforms.velocity.features.VelocityRedisSupport;
 import me.neznamy.tab.platforms.velocity.hook.VelocityPremiumVanishHook;
@@ -40,6 +42,14 @@ import java.io.File;
  */
 @Getter
 public class VelocityPlatform extends ProxyPlatform {
+
+    // --------------------------
+    // Synx Connect modifications
+    @Override
+    public @Nullable Connect synxConnect() {
+        throw new UnsupportedOperationException("synxConnect() not implemented");
+    }
+    // --------------------------
 
     @NotNull
     private final VelocityTAB plugin;

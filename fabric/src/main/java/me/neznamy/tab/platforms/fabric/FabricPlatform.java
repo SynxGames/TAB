@@ -3,6 +3,7 @@ package me.neznamy.tab.platforms.fabric;
 import com.mojang.logging.LogUtils;
 import eu.pb4.placeholders.api.PlaceholderContext;
 import eu.pb4.placeholders.api.Placeholders;
+import games.synx.connect.api.Connect;
 import me.neznamy.chat.ChatModifier;
 import me.neznamy.chat.component.KeybindComponent;
 import me.neznamy.chat.component.TabComponent;
@@ -44,6 +45,14 @@ import java.util.Collections;
  * @param server Minecraft server reference
  */
 public record FabricPlatform(MinecraftServer server) implements BackendPlatform {
+
+    // --------------------------
+    // Synx Connect modifications
+    @Override
+    public @Nullable Connect synxConnect() {
+        throw new UnsupportedOperationException("synxConnect() not implemented");
+    }
+    // --------------------------
 
     @Override
     public void registerUnknownPlaceholder(@NotNull String identifier) {

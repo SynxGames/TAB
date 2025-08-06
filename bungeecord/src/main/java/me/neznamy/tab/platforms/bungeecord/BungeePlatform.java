@@ -1,6 +1,7 @@
 package me.neznamy.tab.platforms.bungeecord;
 
 import com.imaginarycode.minecraft.redisbungee.RedisBungeeAPI;
+import games.synx.connect.api.Connect;
 import me.neznamy.chat.ChatModifier;
 import me.neznamy.chat.component.KeybindComponent;
 import me.neznamy.chat.component.TabComponent;
@@ -43,6 +44,14 @@ import java.io.File;
  * BungeeCord implementation of Platform
  */
 public class BungeePlatform extends ProxyPlatform {
+
+    // --------------------------
+    // Synx Connect modifications
+    @Override
+    public @Nullable Connect synxConnect() {
+        throw new UnsupportedOperationException("synxConnect() not implemented");
+    }
+    // --------------------------
 
     @NotNull
     private final BungeeTAB plugin;

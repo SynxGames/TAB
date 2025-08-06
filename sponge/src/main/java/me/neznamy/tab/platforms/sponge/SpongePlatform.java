@@ -1,5 +1,6 @@
 package me.neznamy.tab.platforms.sponge;
 
+import games.synx.connect.api.Connect;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import me.neznamy.tab.shared.ProtocolVersion;
@@ -30,6 +31,14 @@ import java.io.File;
  */
 @RequiredArgsConstructor
 public class SpongePlatform implements BackendPlatform {
+
+    // --------------------------
+    // Synx Connect modifications
+    @Override
+    public @Nullable Connect synxConnect() {
+        throw new UnsupportedOperationException("synxConnect() not implemented");
+    }
+    // --------------------------
 
     /** Main class reference */
     @NotNull
