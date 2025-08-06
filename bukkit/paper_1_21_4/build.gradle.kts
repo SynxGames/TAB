@@ -3,6 +3,8 @@ plugins {
 }
 
 repositories {
+    mavenCentral()
+    mavenLocal()
     maven("https://jitpack.io") // YamlAssist
     maven("https://repo.opencollab.dev/maven-snapshots/")
     maven("https://repo.viaversion.com/")

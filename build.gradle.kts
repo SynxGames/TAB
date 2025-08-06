@@ -1,4 +1,5 @@
 plugins {
+    `java-library`
     id("tab.parent")
 }
 
@@ -43,5 +44,9 @@ subprojects {
         in platforms -> plugins.apply("tab.platform-conventions")
         in special -> plugins.apply("tab.standard-conventions")
         else -> plugins.apply("tab.base-conventions")
+    }
+
+    dependencies {
+        compileOnly("games.synx:paper:11")
     }
 }

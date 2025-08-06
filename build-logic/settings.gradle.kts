@@ -8,5 +8,6 @@ dependencyResolutionManagement {
         maven("https://maven.neoforged.net/releases/")
         gradlePluginPortal()
         mavenCentral()
+        mavenLocal()
     }
 }

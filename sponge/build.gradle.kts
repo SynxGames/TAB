@@ -5,6 +5,7 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
     // Gradle doesn't support combining settings and project repositories, so we have to re-declare all the settings repos we need
     mavenCentral() // Couldn't compile Caffeine 2.9.2 from jitpack
     maven("https://jitpack.io") // YamlAssist
