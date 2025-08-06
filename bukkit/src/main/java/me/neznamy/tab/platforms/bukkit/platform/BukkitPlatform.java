@@ -1,5 +1,6 @@
 package me.neznamy.tab.platforms.bukkit.platform;
 
+import games.synx.connect.api.Connect;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
@@ -61,6 +62,19 @@ import java.util.List;
  */
 @Getter
 public class BukkitPlatform implements BackendPlatform {
+
+    // --------------------------
+    // Synx Connect modifications
+    @Override
+    @Nullable
+    public Connect synxConnect() {
+        RegisteredServiceProvider<Connect> registration = Bukkit.getServicesManager().getRegistration(Connect.class);
+        if (registration != null) {
+            return registration.getProvider();
+        } else return null;
+        }
+    // --------------------------
+
 
     /** Plugin instance for registering tasks and events */
     @NotNull
