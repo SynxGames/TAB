@@ -1,5 +1,6 @@
 package me.neznamy.tab.shared.platform;
 
+import games.synx.connect.api.Connect;
 import me.neznamy.chat.component.TabComponent;
 import me.neznamy.tab.shared.GroupManager;
 import me.neznamy.tab.shared.features.PerWorldPlayerListConfiguration;
@@ -18,6 +19,11 @@ import java.io.File;
  * but require platform-specific API calls.
  */
 public interface Platform {
+
+    // --------------------------
+    // Synx Connect modifications
+    @Nullable Connect synxConnect();
+    // --------------------------
 
     /**
      * Detects permission plugin and returns its representing object
